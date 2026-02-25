@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/admin_shell.dart';
 import '../widgets/common_widgets.dart';
+import '../utils/responsive.dart';
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({super.key});
@@ -20,37 +21,43 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final padding = context.responsive.value<double>(mobile: 16, tablet: 20, desktop: 28);
+
     return AdminShell(
       currentRoute: '/add-product',
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(padding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Page title
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const SizedBox(width: 8),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Create New Product',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                    Text('Fill in the details below to list a new auction item',
-                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
+            // Page header
+            Row(children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                onPressed: () => Navigator.pop(context),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Create New Product',
+                      style: TextStyle(
+                        fontSize: context.isMobile ? 18 : 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      )),
+                  Text('Fill in the details below to list a new auction item',
+                      style: TextStyle(
+                        fontSize: context.isMobile ? 12 : 13,
+                        color: AppTheme.textSecondary,
+                      )),
+                ]),
+              ),
+            ]),
+            const SizedBox(height: 24),
 
             // Form card
             Container(
-              padding: const EdgeInsets.all(28),
+              padding: EdgeInsets.all(context.isMobile ? 16 : 28),
               decoration: BoxDecoration(
                 color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -63,23 +70,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   _SectionLabel(label: 'Basic Information', icon: Icons.info_outline_rounded),
                   const SizedBox(height: 20),
 
-                  // Title (full width)
-                  const AppTextField(
-                    label: 'Product Title *',
-                    hint: 'e.g., Wireless Bluetooth Headphones',
-                  ),
-                  const SizedBox(height: 20),
+                  const AppTextField(label: 'Product Title *', hint: 'e.g., Wireless Bluetooth Headphones'),
+                  const SizedBox(height: 18),
+                  const AppTextField(label: 'Description', hint: 'Detailed product description...', maxLines: 4),
+                  const SizedBox(height: 18),
 
-                  // Description (full width)
-                  const AppTextField(
-                    label: 'Description',
-                    hint: 'Detailed product description...',
-                    maxLines: 4,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Two column row
-                  _twoColumn(
+                  // Category + Starting Price
+                  _responsiveRow(
+                    context,
                     _DropdownField(
                       label: 'Category',
                       value: _selectedCategory,
@@ -92,13 +90,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       keyboardType: TextInputType.number,
                     ),
                   ),
-                  const SizedBox(height: 20),
 
-                  const Divider(color: AppTheme.cardBorder, height: 32),
+                  const Divider(color: AppTheme.cardBorder, height: 36),
                   _SectionLabel(label: 'Auction Settings', icon: Icons.gavel_rounded),
                   const SizedBox(height: 20),
 
-                  _twoColumn(
+                  // Start date + Duration
+                  _responsiveRow(
+                    context,
                     const AppTextField(
                       label: 'Bid Start Date & Time *',
                       hint: 'Select date & time',
@@ -111,96 +110,103 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       onChanged: (v) => setState(() => _selectedDuration = v!),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
-                  _twoColumn(
-                    const AppTextField(
-                      label: 'Minimum Bid Increment (\$)',
-                      hint: '5',
-                      keyboardType: TextInputType.number,
-                    ),
-                    const AppTextField(
-                      label: 'Reserve Price (\$) (Optional)',
-                      hint: 'Minimum acceptable price',
-                      keyboardType: TextInputType.number,
-                    ),
+                  // Min increment + Reserve price
+                  _responsiveRow(
+                    context,
+                    const AppTextField(label: 'Min Bid Increment (\$)', hint: '5', keyboardType: TextInputType.number),
+                    const AppTextField(label: 'Reserve Price (\$) (Optional)', hint: 'Minimum acceptable price', keyboardType: TextInputType.number),
                   ),
-                  const SizedBox(height: 20),
 
-                  const Divider(color: AppTheme.cardBorder, height: 32),
+                  const Divider(color: AppTheme.cardBorder, height: 36),
                   _SectionLabel(label: 'Product Images', icon: Icons.image_outlined),
                   const SizedBox(height: 16),
 
-                  // Image upload area
+                  // Upload area
                   GestureDetector(
                     onTap: () {},
                     child: MouseRegion(
                       onEnter: (_) => setState(() => _isDragging = true),
-                      onExit: (_) => setState(() => _isDragging = false),
+                      onExit:  (_) => setState(() => _isDragging = false),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        height: 140,
+                        height: 130,
                         decoration: BoxDecoration(
                           color: _isDragging ? AppTheme.primaryLight : AppTheme.background,
                           border: Border.all(
                             color: _isDragging ? AppTheme.primary : const Color(0xFFD1D5DB),
                             width: 2,
-                            style: BorderStyle.solid,
                           ),
                           borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.cloud_upload_outlined,
-                                size: 36,
-                                color: _isDragging ? AppTheme.primary : AppTheme.textMuted),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Click to upload or drag and drop',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: _isDragging ? AppTheme.primary : AppTheme.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.cloud_upload_outlined, size: 34,
+                              color: _isDragging ? AppTheme.primary : AppTheme.textMuted),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Click to upload or drag and drop',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: _isDragging ? AppTheme.primary : AppTheme.textSecondary,
+                              fontWeight: FontWeight.w500,
                             ),
-                            const SizedBox(height: 4),
-                            const Text('PNG, JPG up to 5MB',
-                                style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text('PNG, JPG up to 5MB',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                        ]),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
 
-                  // Action buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
-                          icon: const Icon(Icons.publish_rounded, size: 18),
-                          label: const Text('Publish Product'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.save_outlined, size: 18),
-                          label: const Text('Save as Draft'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  // Action buttons – stack on mobile
+                  context.isMobile
+                      ? Column(children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+                              icon: const Icon(Icons.publish_rounded, size: 18),
+                              label: const Text('Publish Product'),
                             ),
-                            textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () {},
+                              icon: const Icon(Icons.save_outlined, size: 18),
+                              label: const Text('Save as Draft'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSmall)),
+                              ),
+                            ),
+                          ),
+                        ])
+                      : Row(children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+                              icon: const Icon(Icons.publish_rounded, size: 18),
+                              label: const Text('Publish Product'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {},
+                              icon: const Icon(Icons.save_outlined, size: 18),
+                              label: const Text('Save as Draft'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSmall)),
+                              ),
+                            ),
+                          ),
+                        ]),
                 ],
               ),
             ),
@@ -210,7 +216,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
-  Widget _twoColumn(Widget left, Widget right) {
+  /// On mobile, stack two fields; on tablet/desktop, show side by side
+  Widget _responsiveRow(BuildContext context, Widget left, Widget right) {
+    if (context.isMobile) {
+      return Column(children: [left, const SizedBox(height: 18), right]);
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -232,8 +242,7 @@ class _SectionLabel extends StatelessWidget {
     return Row(children: [
       Icon(icon, size: 18, color: AppTheme.primary),
       const SizedBox(width: 8),
-      Text(label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+      Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
     ]);
   }
 }
@@ -244,23 +253,17 @@ class _DropdownField extends StatelessWidget {
   final List<String> items;
   final ValueChanged<String?> onChanged;
 
-  const _DropdownField({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
+  const _DropdownField({required this.label, required this.value, required this.items, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
+        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          value: value,
           items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
           onChanged: onChanged,
           decoration: const InputDecoration(),
