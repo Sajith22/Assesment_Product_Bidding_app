@@ -77,7 +77,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDWQcc7CYIx3LSXG9Taf1COmrKxa5Njv04',
+    apiKey: '???',
     appId: '1:998569864600:web:5a7276ebf975d9411c8fed',
     messagingSenderId: '998569864600',
     projectId: 'biddingapp-2b035',
