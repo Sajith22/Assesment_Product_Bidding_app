@@ -41,7 +41,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDWQcc7CYIx3LSXG9Taf1COmrKxa5Njv04',
+    apiKey: '???',
     appId: '1:998569864600:web:c060d5a9ab444c011c8fed',
     messagingSenderId: '998569864600',
     projectId: 'biddingapp-2b035',
@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC0Ve9XmZSBNykZDiSLYfB3IkOvv3h6IZo',
+    apiKey: '???',
     appId: '1:998569864600:android:542619897b8eedcd1c8fed',
     messagingSenderId: '998569864600',
     projectId: 'biddingapp-2b035',
@@ -59,7 +59,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyC05ClCjTI36buhWFV-zVB1LIEpyj2m7ao',
+    apiKey: '???',
     appId: '1:998569864600:ios:47a213fff1d364891c8fed',
     messagingSenderId: '998569864600',
     projectId: 'biddingapp-2b035',
@@ -68,7 +68,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyC05ClCjTI36buhWFV-zVB1LIEpyj2m7ao',
+    apiKey: '???',
     appId: '1:998569864600:ios:47a213fff1d364891c8fed',
     messagingSenderId: '998569864600',
     projectId: 'biddingapp-2b035',
