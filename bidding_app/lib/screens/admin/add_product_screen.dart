@@ -1,8 +1,12 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// screens/admin/add_product_screen.dart
+// Replaces old add_product_screen.dart — saves to Firestore.
+// ─────────────────────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme/admin_theme.dart';
-import '../../widgets/admin/admin_shell.dart';
-import '../../widgets/admin/common_widgets.dart';
-import '../../utils/responsive.dart';
+import '../../models/app_models.dart';
+import '../../services/product_service.dart';
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({super.key});
@@ -12,264 +16,394 @@ class AddProductScreen extends StatefulWidget {
 }
 
 class _AddProductScreenState extends State<AddProductScreen> {
-  String _selectedCategory = 'Select category';
-  String _selectedDuration = '1 Day';
-  bool _isDragging = false;
+  final _formKey       = GlobalKey<FormState>();
+  final _titleCtrl     = TextEditingController();
+  final _descCtrl      = TextEditingController();
+  final _priceCtrl     = TextEditingController();
+  final _incrementCtrl = TextEditingController();
+  final _service       = ProductService();
 
-  final List<String> _categories = ['Select category', 'Electronics', 'Fashion', 'Home & Garden', 'Sports', 'Wearables'];
-  final List<String> _durations = ['1 Day', '2 Days', '3 Days', '1 Week', 'Custom'];
+  DateTime _startTime       = DateTime.now().add(const Duration(hours: 1));
+  int _durationHours        = 48;   // default 2 days
+  bool _isPublished         = true;
+  bool _loading             = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    _priceCtrl.dispose();
+    _incrementCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickStartTime() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _startTime,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_startTime),
+    );
+    if (time == null) return;
+
+    setState(() {
+      _startTime = DateTime(
+          date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() { _loading = true; _error = null; });
+
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final price = double.parse(_priceCtrl.text.trim());
+    final increment = _incrementCtrl.text.trim().isEmpty
+        ? null
+        : double.tryParse(_incrementCtrl.text.trim());
+
+    final product = Product(
+      id: '',
+      title: _titleCtrl.text.trim(),
+      description: _descCtrl.text.trim(),
+      startingPrice: price,
+      currentHighestBid: price,
+      startTime: _startTime,
+      duration: Duration(hours: _durationHours),
+      minIncrement: increment,
+      isPublished: _isPublished,
+      adminId: uid,
+    );
+
+    final id = await _service.createProduct(product);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (id != null) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Product created successfully!'),
+          backgroundColor: AppTheme.success,
+        ),
+      );
+    } else {
+      setState(() => _error = 'Failed to create product. Please try again.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final padding = context.responsive.value<double>(mobile: 16, tablet: 20, desktop: 28);
+    final isWide = MediaQuery.of(context).size.width > 700;
 
-    return AdminShell(
-      currentRoute: '/add-product',
-      child: SingleChildScrollView(
-        padding: EdgeInsets.all(padding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Page header
-            Row(children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Create New Product',
-                      style: TextStyle(
-                        fontSize: context.isMobile ? 18 : 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                      )),
-                  Text('Fill in the details below to list a new auction item',
-                      style: TextStyle(
-                        fontSize: context.isMobile ? 12 : 13,
-                        color: AppTheme.textSecondary,
-                      )),
-                ]),
-              ),
-            ]),
-            const SizedBox(height: 24),
-
-            // Form card
-            Container(
-              padding: EdgeInsets.all(context.isMobile ? 16 : 28),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                boxShadow: AppTheme.cardShadow,
-                border: Border.all(color: AppTheme.cardBorder),
-              ),
+    return Scaffold(
+      backgroundColor: AppTheme.surface,
+      appBar: AppBar(title: const Text('Add New Product')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isWide ? 640 : double.infinity),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isWide ? 0 : 16,
+              vertical: 20,
+            ),
+            child: Form(
+              key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SectionLabel(label: 'Basic Information', icon: Icons.info_outline_rounded),
-                  const SizedBox(height: 20),
+                  if (_error != null) ...[
+                    _ErrorBox(_error!),
+                    const SizedBox(height: 14),
+                  ],
 
-                  const AppTextField(label: 'Product Title *', hint: 'e.g., Wireless Bluetooth Headphones'),
-                  const SizedBox(height: 18),
-                  const AppTextField(label: 'Description', hint: 'Detailed product description...', maxLines: 4),
-                  const SizedBox(height: 18),
-
-                  // Category + Starting Price
-                  _responsiveRow(
-                    context,
-                    _DropdownField(
-                      label: 'Category',
-                      value: _selectedCategory,
-                      items: _categories,
-                      onChanged: (v) => setState(() => _selectedCategory = v!),
-                    ),
-                    const AppTextField(
-                      label: 'Starting Price (\$) *',
-                      hint: '100',
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-
-                  const Divider(color: AppTheme.cardBorder, height: 36),
-                  _SectionLabel(label: 'Auction Settings', icon: Icons.gavel_rounded),
-                  const SizedBox(height: 20),
-
-                  // Start date + Duration
-                  _responsiveRow(
-                    context,
-                    const AppTextField(
-                      label: 'Bid Start Date & Time *',
-                      hint: 'Select date & time',
-                      suffixIcon: Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.textSecondary),
-                    ),
-                    _DropdownField(
-                      label: 'Bidding Duration *',
-                      value: _selectedDuration,
-                      items: _durations,
-                      onChanged: (v) => setState(() => _selectedDuration = v!),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Min increment + Reserve price
-                  _responsiveRow(
-                    context,
-                    const AppTextField(label: 'Min Bid Increment (\$)', hint: '5', keyboardType: TextInputType.number),
-                    const AppTextField(label: 'Reserve Price (\$) (Optional)', hint: 'Minimum acceptable price', keyboardType: TextInputType.number),
-                  ),
-
-                  const Divider(color: AppTheme.cardBorder, height: 36),
-                  _SectionLabel(label: 'Product Images', icon: Icons.image_outlined),
-                  const SizedBox(height: 16),
-
-                  // Upload area
-                  GestureDetector(
-                    onTap: () {},
-                    child: MouseRegion(
-                      onEnter: (_) => setState(() => _isDragging = true),
-                      onExit:  (_) => setState(() => _isDragging = false),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        height: 130,
-                        decoration: BoxDecoration(
-                          color: _isDragging ? AppTheme.primaryLight : AppTheme.background,
-                          border: Border.all(
-                            color: _isDragging ? AppTheme.primary : const Color(0xFFD1D5DB),
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                        ),
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(Icons.cloud_upload_outlined, size: 34,
-                              color: _isDragging ? AppTheme.primary : AppTheme.textMuted),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Click to upload or drag and drop',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: _isDragging ? AppTheme.primary : AppTheme.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text('PNG, JPG up to 5MB',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-                        ]),
+                  _SectionCard(
+                    title: 'Product Details',
+                    children: [
+                      TextFormField(
+                        controller: _titleCtrl,
+                        decoration: const InputDecoration(labelText: 'Product Title *'),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Title is required'
+                            : null,
                       ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _descCtrl,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                            labelText: 'Description *',
+                            alignLabelWithHint: true),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Description is required'
+                            : null,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  _SectionCard(
+                    title: 'Bid Configuration',
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _priceCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                  labelText: 'Starting Price (\$) *',
+                                  prefixText: '\$ '),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Required';
+                                }
+                                if (double.tryParse(v.trim()) == null) {
+                                  return 'Invalid number';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _incrementCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                  labelText: 'Min Increment (\$)',
+                                  prefixText: '\$ '),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // Start time picker
+                      const Text('Bid Start Time',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textSecondary)),
+                      const SizedBox(height: 6),
+                      GestureDetector(
+                        onTap: _pickStartTime,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.schedule_rounded,
+                                  size: 18, color: AppTheme.textSecondary),
+                              const SizedBox(width: 10),
+                              Text(
+                                _formatDateTime(_startTime),
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                              const Spacer(),
+                              const Icon(Icons.edit_outlined,
+                                  size: 16, color: AppTheme.textSecondary),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // Duration slider
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Bidding Duration',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.textSecondary)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _durationHours >= 24
+                                  ? '${(_durationHours / 24).round()} day(s)'
+                                  : '$_durationHours hour(s)',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.primary),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: _durationHours.toDouble(),
+                        min: 1,
+                        max: 168,  // 7 days max
+                        divisions: 167,
+                        activeColor: AppTheme.primary,
+                        onChanged: (v) =>
+                            setState(() => _durationHours = v.round()),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: const [
+                          Text('1 hr', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                          Text('7 days', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  _SectionCard(
+                    title: 'Publishing',
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Publish immediately',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _isPublished
+                                      ? 'Visible to all bidders'
+                                      : 'Hidden from bidders',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _isPublished,
+                            activeColor: AppTheme.primary,
+                            onChanged: (v) =>
+                                setState(() => _isPublished = v),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: _loading ? null : _submit,
+                      icon: _loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_rounded),
+                      label: Text(_loading
+                          ? 'Creating...'
+                          : 'Create Product'),
                     ),
                   ),
-                  const SizedBox(height: 28),
 
-                  // Action buttons – stack on mobile
-                  context.isMobile
-                      ? Column(children: [
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
-                              icon: const Icon(Icons.publish_rounded, size: 18),
-                              label: const Text('Publish Product'),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () {},
-                              icon: const Icon(Icons.save_outlined, size: 18),
-                              label: const Text('Save as Draft'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSmall)),
-                              ),
-                            ),
-                          ),
-                        ])
-                      : Row(children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
-                              icon: const Icon(Icons.publish_rounded, size: 18),
-                              label: const Text('Publish Product'),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {},
-                              icon: const Icon(Icons.save_outlined, size: 18),
-                              label: const Text('Save as Draft'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSmall)),
-                              ),
-                            ),
-                          ),
-                        ]),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  /// On mobile, stack two fields; on tablet/desktop, show side by side
-  Widget _responsiveRow(BuildContext context, Widget left, Widget right) {
-    if (context.isMobile) {
-      return Column(children: [left, const SizedBox(height: 18), right]);
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: left),
-        const SizedBox(width: 20),
-        Expanded(child: right),
-      ],
+  String _formatDateTime(DateTime dt) {
+    return '${dt.day}/${dt.month}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _SectionCard({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: AppTheme.textPrimary)),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
     );
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  const _SectionLabel({required this.label, required this.icon});
+class _ErrorBox extends StatelessWidget {
+  final String message;
+  const _ErrorBox(this.message);
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Icon(icon, size: 18, color: AppTheme.primary),
-      const SizedBox(width: 8),
-      Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-    ]);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.error.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              color: AppTheme.error, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text(message,
+                  style: const TextStyle(
+                      color: AppTheme.error, fontSize: 13))),
+        ],
+      ),
+    );
   }
 }
 
-class _DropdownField extends StatelessWidget {
-  final String label;
-  final String value;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
-
-  const _DropdownField({required this.label, required this.value, required this.items, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          value: value,
-          items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
-          onChanged: onChanged,
-          decoration: const InputDecoration(),
-          style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontFamily: 'Poppins'),
-        ),
-      ],
-    );
-  }
+// Make textMuted accessible from admin_theme — add this if missing in admin_theme.dart
+extension AdminThemeExt on AppTheme {
+  static const textMuted = Color(0xFF94A3B8);
 }

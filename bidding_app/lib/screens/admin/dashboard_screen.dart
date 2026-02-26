@@ -1,9 +1,16 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// screens/admin/dashboard_screen.dart
+// Replaces your old dashboard_screen.dart — now wired to Firestore.
+// ─────────────────────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme/admin_theme.dart';
-import '../../models/product.dart';
-import '../../widgets/admin/admin_shell.dart';
-import '../../widgets/admin/common_widgets.dart';
-import '../../utils/responsive.dart';
+import '../../models/app_models.dart';
+import '../../services/product_service.dart';
+import '../../services/auth_service.dart';
+import 'add_product_screen.dart';
+import 'bid_history_screen.dart';
+import '../../../main.dart' show RoleGateway;
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -13,400 +20,447 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  String _filter = 'All';
+  final _productService = ProductService();
+  final _authService    = AuthService();
+  String _filter = 'all';   // all | upcoming | live | ended
 
-  List<Product> get _filteredProducts {
-    if (_filter == 'All') return sampleProducts;
-    final statusMap = {
-      'Upcoming': AuctionStatus.upcoming,
-      'Live':     AuctionStatus.live,
-      'Ended':    AuctionStatus.ended,
-    };
-    return sampleProducts.where((p) => p.status == statusMap[_filter]).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AdminShell(
-      currentRoute: '/dashboard',
-      child: Column(
-        children: [
-          _DashboardHeader(onAddProduct: () => Navigator.pushNamed(context, '/add-product')),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(context.responsive.value(mobile: 16, tablet: 20, desktop: 28)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _StatsGrid(),
-                  const SizedBox(height: 24),
-                  _ProductTableCard(
-                    filter: _filter,
-                    products: _filteredProducts,
-                    onFilterChanged: (v) => setState(() => _filter = v),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Header
-// ─────────────────────────────────────────────
-class _DashboardHeader extends StatelessWidget {
-  final VoidCallback onAddProduct;
-  const _DashboardHeader({required this.onAddProduct});
-
-  @override
-  Widget build(BuildContext context) {
-    final isMobile = context.isMobile;
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)]),
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 28,
-        vertical: isMobile ? 16 : 20,
-      ),
-      child: isMobile
-          // Mobile: stack vertically
-          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Product Dashboard',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              const Text('Manage bidding products',
-                  style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 13)),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: _AddButton(onTap: onAddProduct),
-              ),
-            ])
-          // Tablet / Desktop: row
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Product Dashboard',
-                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
-                  SizedBox(height: 2),
-                  Text('Manage bidding products and view analytics',
-                      style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 13)),
-                ]),
-                _AddButton(onTap: onAddProduct),
-              ],
-            ),
-    );
-  }
-}
-
-class _AddButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _AddButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: const Icon(Icons.add, size: 18),
-      label: const Text('Add New Product'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.primary,
-        elevation: 2,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSmall)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Stats grid – 4 cols desktop, 2 cols tablet/mobile
-// ─────────────────────────────────────────────
-class _StatsGrid extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final crossAxisCount = context.isDesktop ? 4 : 2;
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: crossAxisCount,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: context.isMobile ? 1.6 : 1.8,
-      children: const [
-        StatCard(label: 'Total Products', value: '24',    subtitle: '↑ 12% from last month'),
-        StatCard(label: 'Live Auctions',  value: '8',     subtitle: 'Active bidding now',   valueColor: AppTheme.warning),
-        StatCard(label: 'Total Bids',     value: '342',   subtitle: '↑ 28% increase',       valueColor: AppTheme.primary),
-        StatCard(label: 'Revenue',        value: '\$45.2K', subtitle: '↑ 18% growth',       valueColor: AppTheme.success),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Product table card
-// ─────────────────────────────────────────────
-class _ProductTableCard extends StatelessWidget {
-  final String filter;
-  final List<Product> products;
-  final ValueChanged<String> onFilterChanged;
-
-  const _ProductTableCard({
-    required this.filter,
-    required this.products,
-    required this.onFilterChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
-        border: Border.all(color: AppTheme.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-            child: context.isMobile
-                // Mobile: stack title + filters
-                ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Product List',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                    const SizedBox(height: 10),
-                    _FilterTabs(selected: filter, onChanged: onFilterChanged),
-                  ])
-                // Tablet/Desktop: row
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Product List',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                      _FilterTabs(selected: filter, onChanged: onFilterChanged),
-                    ],
-                  ),
-          ),
-          const SizedBox(height: 12),
-          // Mobile shows cards, Tablet/Desktop shows table
-          context.isMobile
-              ? _ProductCardList(products: products)
-              : _ProductTable(products: products),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterTabs extends StatelessWidget {
-  final String selected;
-  final ValueChanged<String> onChanged;
-  const _FilterTabs({required this.selected, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      children: ['All', 'Upcoming', 'Live', 'Ended'].map((label) {
-        final isActive = selected == label;
-        return InkWell(
-          onTap: () => onChanged(label),
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: isActive ? AppTheme.primary : const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: isActive ? Colors.white : AppTheme.textSecondary,
-                )),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// MOBILE: Product cards (no horizontal scroll)
-// ─────────────────────────────────────────────
-class _ProductCardList extends StatelessWidget {
-  final List<Product> products;
-  const _ProductCardList({required this.products});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: products.map((p) => _ProductMobileCard(product: p)).toList(),
-    );
-  }
-}
-
-class _ProductMobileCard extends StatelessWidget {
-  final Product product;
-  const _ProductMobileCard({required this.product});
-
-  @override
-  Widget build(BuildContext context) {
-    StatusBadge badge;
-    switch (product.status) {
-      case AuctionStatus.live:     badge = StatusBadge.live(); break;
-      case AuctionStatus.upcoming: badge = StatusBadge.upcoming(); break;
-      case AuctionStatus.ended:    badge = StatusBadge.ended(); break;
+  Future<void> _signOut() async {
+    await _authService.signOut();
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const RoleGateway()),
+        (_) => false,
+      );
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width > 900;
+
+    return Scaffold(
+      backgroundColor: AppTheme.surface,
+      appBar: AppBar(
+        title: const Text('Admin Dashboard'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Sign Out',
+            onPressed: _signOut,
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AddProductScreen()),
+        ),
+        backgroundColor: AppTheme.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Add Product',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
+      body: StreamBuilder<List<Product>>(
+        stream: _productService.watchAllProducts(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          if (!snapshot.hasData) {
+            return const Center(
+                child: CircularProgressIndicator());
+          }
+
+          final all = snapshot.data!;
+          final products = _filter == 'all'
+              ? all
+              : all.where((p) => p.status.label.toLowerCase() == _filter).toList();
+
+          return Column(
+            children: [
+              // Stats bar
+              _StatsBar(products: all, isWide: isWide),
+
+              // Filter chips
+              _FilterBar(
+                selected: _filter,
+                onSelect: (f) => setState(() => _filter = f),
+              ),
+
+              // Product list
+              Expanded(
+                child: products.isEmpty
+                    ? const _EmptyState()
+                    : isWide
+                        ? _ProductGrid(
+                            products: products,
+                            service: _productService,
+                          )
+                        : _ProductList(
+                            products: products,
+                            service: _productService,
+                          ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Stats bar ─────────────────────────────────────────────────────────────────
+class _StatsBar extends StatelessWidget {
+  final List<Product> products;
+  final bool isWide;
+
+  const _StatsBar({required this.products, required this.isWide});
+
+  @override
+  Widget build(BuildContext context) {
+    final live     = products.where((p) => p.status == BidStatus.live).length;
+    final upcoming = products.where((p) => p.status == BidStatus.upcoming).length;
+    final ended    = products.where((p) => p.status == BidStatus.ended).length;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppTheme.cardBorder)),
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(
+        horizontal: isWide ? 32 : 16,
+        vertical: 14,
       ),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(product.imageUrl, width: 52, height: 52, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(width: 52, height: 52,
-                    color: AppTheme.background,
-                    child: const Icon(Icons.image, color: AppTheme.textMuted))),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(product.title,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
-              const SizedBox(height: 2),
-              Text(product.category,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              const SizedBox(height: 6),
-              Row(children: [
-                badge,
-                const SizedBox(width: 8),
-                Text(
-                  product.currentBid != null
-                      ? '\$${product.currentBid!.toStringAsFixed(0)}'
-                      : '\$${product.startPrice.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: product.currentBid != null ? AppTheme.success : AppTheme.textSecondary,
-                  ),
-                ),
-              ]),
-            ]),
-          ),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('${product.bidCount} bids',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-            const SizedBox(height: 4),
-            Text(product.endTime,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => Navigator.pushNamed(context, '/bid-history'),
-              style: TextButton.styleFrom(
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              ),
-              child: const Text('View', style: TextStyle(fontSize: 12)),
-            ),
-          ]),
+          _StatChip(label: 'Total', value: '${products.length}',
+              color: AppTheme.primary),
+          const SizedBox(width: 10),
+          _StatChip(label: 'Live', value: '$live',
+              color: AppTheme.success),
+          const SizedBox(width: 10),
+          _StatChip(label: 'Upcoming', value: '$upcoming',
+              color: AppTheme.warning),
+          const SizedBox(width: 10),
+          _StatChip(label: 'Ended', value: '$ended',
+              color: AppTheme.textSecondary),
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────
-// TABLET / DESKTOP: DataTable
-// ─────────────────────────────────────────────
-class _ProductTable extends StatelessWidget {
-  final List<Product> products;
-  const _ProductTable({required this.products});
+class _StatChip extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  const _StatChip({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
-        dividerThickness: 1,
-        columns: const [
-          DataColumn(label: Text('Product',     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
-          DataColumn(label: Text('Status',      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
-          DataColumn(label: Text('Start Price', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
-          DataColumn(label: Text('Current Bid', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
-          DataColumn(label: Text('Bids',        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
-          DataColumn(label: Text('End Time',    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
-          DataColumn(label: Text('Actions',     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: 16, color: color)),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(fontSize: 11, color: color)),
         ],
-        rows: products.map((p) => _buildRow(context, p)).toList(),
       ),
     );
   }
+}
 
-  DataRow _buildRow(BuildContext context, Product p) {
-    StatusBadge badge;
-    switch (p.status) {
-      case AuctionStatus.live:     badge = StatusBadge.live(); break;
-      case AuctionStatus.upcoming: badge = StatusBadge.upcoming(); break;
-      case AuctionStatus.ended:    badge = StatusBadge.ended(); break;
+// ── Filter bar ────────────────────────────────────────────────────────────────
+class _FilterBar extends StatelessWidget {
+  final String selected;
+  final Function(String) onSelect;
+
+  const _FilterBar({required this.selected, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: ['all', 'live', 'upcoming', 'ended'].map((f) {
+            final isActive = selected == f;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => onSelect(f),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? AppTheme.primary
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isActive
+                          ? AppTheme.primary
+                          : AppTheme.border,
+                    ),
+                  ),
+                  child: Text(
+                    f[0].toUpperCase() + f.substring(1),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isActive
+                          ? Colors.white
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Product list (mobile) ─────────────────────────────────────────────────────
+class _ProductList extends StatelessWidget {
+  final List<Product> products;
+  final ProductService service;
+
+  const _ProductList({required this.products, required this.service});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: products.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, i) =>
+          _ProductCard(product: products[i], service: service),
+    );
+  }
+}
+
+// ── Product grid (desktop/tablet) ─────────────────────────────────────────────
+class _ProductGrid extends StatelessWidget {
+  final List<Product> products;
+  final ProductService service;
+
+  const _ProductGrid({required this.products, required this.service});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(24),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 360,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+        childAspectRatio: 1.1,
+      ),
+      itemCount: products.length,
+      itemBuilder: (_, i) =>
+          _ProductCard(product: products[i], service: service),
+    );
+  }
+}
+
+// ── Product card ──────────────────────────────────────────────────────────────
+class _ProductCard extends StatelessWidget {
+  final Product product;
+  final ProductService service;
+
+  const _ProductCard({required this.product, required this.service});
+
+  Color get _statusColor {
+    switch (product.status) {
+      case BidStatus.live:     return AppTheme.success;
+      case BidStatus.upcoming: return AppTheme.warning;
+      case BidStatus.ended:    return AppTheme.textSecondary;
     }
+  }
 
-    return DataRow(cells: [
-      DataCell(Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Image.network(p.imageUrl, width: 44, height: 44, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(width: 44, height: 44,
-                  color: AppTheme.background, child: const Icon(Icons.image, color: AppTheme.textMuted))),
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    product.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: _statusColor.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    product.status.label,
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: _statusColor),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              product.description,
+              style: const TextStyle(
+                  fontSize: 12, color: AppTheme.textSecondary),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+
+            const Spacer(),
+
+            // Price row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Current Bid',
+                        style: TextStyle(
+                            fontSize: 10, color: AppTheme.textSecondary)),
+                    Text(
+                      '\$${product.currentHighestBid.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: AppTheme.primary),
+                    ),
+                  ],
+                ),
+                // Winner chip
+                if (product.status == BidStatus.ended &&
+                    product.winnerName != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.success),
+                    ),
+                    child: Text(
+                      '🏆 ${product.winnerName}',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.success),
+                    ),
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Actions row
+            Row(
+              children: [
+                // Publish toggle
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => service.setPublished(
+                        product.id, !product.isPublished),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: product.isPublished
+                            ? AppTheme.success.withOpacity(0.08)
+                            : AppTheme.border,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        product.isPublished ? 'Published' : 'Unpublished',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: product.isPublished
+                              ? AppTheme.success
+                              : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Bid history
+                IconButton(
+                  icon: const Icon(Icons.history_rounded, size: 20),
+                  tooltip: 'Bid History',
+                  color: AppTheme.primary,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          BidHistoryScreen(product: product),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-          Text(p.category, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-        ]),
-      ])),
-      DataCell(badge),
-      DataCell(Text('\$${p.startPrice.toStringAsFixed(0)}')),
-      DataCell(Text(
-        p.currentBid != null ? '\$${p.currentBid!.toStringAsFixed(0)}' : '—',
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: p.currentBid != null ? AppTheme.success : AppTheme.textMuted,
-        ),
-      )),
-      DataCell(Text('${p.bidCount}')),
-      DataCell(Text(p.endTime)),
-      DataCell(Row(children: [
-        TextButton(
-          onPressed: () => Navigator.pushNamed(context, '/bid-history'),
-          style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
-          child: Text(p.status == AuctionStatus.ended ? 'Winner' : 'View', style: const TextStyle(fontSize: 13)),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pushNamed(context, '/add-product'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppTheme.textSecondary,
-            minimumSize: Size.zero,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          ),
-          child: Text(p.status == AuctionStatus.ended ? 'History' : 'Edit', style: const TextStyle(fontSize: 13)),
-        ),
-      ])),
-    ]);
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.inventory_2_outlined,
+              size: 56, color: AppTheme.textSecondary),
+          const SizedBox(height: 14),
+          const Text('No products yet',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary)),
+          const SizedBox(height: 6),
+          const Text('Tap + to add your first auction product.',
+              style: TextStyle(
+                  fontSize: 13, color: AppTheme.textSecondary)),
+        ],
+      ),
+    );
   }
 }
