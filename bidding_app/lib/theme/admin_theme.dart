@@ -1,81 +1,80 @@
+// theme/admin_theme.dart
 import 'package:flutter/material.dart';
 
-class AppTadheme {
-  // Colors
-  static const Color primary = Color(0xFF2563EB);       // blue-600
-  static const Color primaryDark = Color(0xFF1D4ED8);   // blue-700
-  static const Color primaryLight = Color(0xFFEFF6FF);  // blue-50
-  static const Color success = Color(0xFF16A34A);       // green-600
-  static const Color successLight = Color(0xFFF0FDF4);  // green-50
-  static const Color warning = Color(0xFFD97706);       // amber-600
-  static const Color warningLight = Color(0xFFFFFBEB);  // amber-50
-  static const Color surface = Colors.white;
-  static const Color background = Color(0xFFF3F4F6);    // gray-100
-  static const Color cardBorder = Color(0xFFE5E7EB);    // gray-200
-  static const Color textPrimary = Color(0xFF111827);   // gray-900
-  static const Color textSecondary = Color(0xFF6B7280); // gray-500
-  static const Color textMuted = Color(0xFF9CA3AF);     // gray-400
-  static const Color sidebarBg = Color(0xFF111827);     // gray-900
-
-  // Radius
-  static const double radiusSmall = 8.0;
-  static const double radiusLarge = 16.0;
-
-  // Shadows
-  static List<BoxShadow> cardShadow = [
-    BoxShadow(
-      color: Colors.black.withOpacity(0.07),
-      blurRadius: 12,
-      offset: const Offset(0, 4),
-    ),
-  ];
-
-  static ThemeData get theme => ThemeData(
-        colorSchemeSeed: primary,
-        fontFamily: 'Poppins',
-        scaffoldBackgroundColor: background,
-        cardTheme: CardThemeData(
+class AppTheme {
+  static ThemeData get theme {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF1E40AF),
+        brightness: Brightness.light,
+      ),
+      fontFamily: 'Inter',
+      scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.white,
+        foregroundColor: Color(0xFF0F172A),
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: Color(0xFF0F172A),
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'Inter',
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E40AF),
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusLarge),
-            side: const BorderSide(color: cardBorder),
-          ),
-          color: surface,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(radiusSmall),
-            borderSide: const BorderSide(color: cardBorder),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(radiusSmall),
-            borderSide: const BorderSide(color: cardBorder),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(radiusSmall),
-            borderSide: const BorderSide(color: primary, width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(radiusSmall),
-            ),
-            textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            elevation: 2,
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            fontFamily: 'Inter',
           ),
         ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: primary,
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
-      );
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF1E40AF), width: 2),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+    );
+  }
+
+  // ── Static color constants (used directly as AppTheme.primary etc.) ────────
+  static const Color primary       = Color(0xFF1E40AF);
+  static const Color surface       = Color(0xFFF1F5F9);
+  static const Color cardBg        = Colors.white;
+  static const Color border        = Color(0xFFE2E8F0);   // ← was missing
+  static const Color textPrimary   = Color(0xFF0F172A);
+  static const Color textSecondary = Color(0xFF64748B);
+  static const Color textMuted     = Color(0xFF94A3B8);
+  static const Color success       = Color(0xFF16A34A);
+  static const Color warning       = Color(0xFFD97706);
+  static const Color error         = Color(0xFFDC2626);   // ← was missing
 }
