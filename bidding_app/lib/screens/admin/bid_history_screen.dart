@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../models/product.dart';
-import '../widgets/admin_shell.dart';
-import '../utils/responsive.dart';
+import '../../theme/admin_theme.dart';
+import '../../models/product.dart';
+import '../../widgets/admin/admin_shell.dart';
+import '../../utils/responsive.dart';
 
 class BidHistoryScreen extends StatelessWidget {
   const BidHistoryScreen({super.key});

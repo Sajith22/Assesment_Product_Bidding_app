@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../utils/responsive.dart';
+import '../../theme/admin_theme.dart';
+import '../../utils/responsive.dart';
 
 class AdminShell extends StatelessWidget {
   final Widget child;

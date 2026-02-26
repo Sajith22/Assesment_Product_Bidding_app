@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../widgets/admin_shell.dart';
-import '../widgets/common_widgets.dart';
-import '../utils/responsive.dart';
+import '../../theme/admin_theme.dart';
+import '../../widgets/admin/admin_shell.dart';
+import '../../widgets/admin/common_widgets.dart';
+import '../../utils/responsive.dart';
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({super.key});

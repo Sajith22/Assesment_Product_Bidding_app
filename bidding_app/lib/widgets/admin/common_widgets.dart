@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../../theme/admin_theme.dart';
 
 class StatCard extends StatelessWidget {
   final String label;
